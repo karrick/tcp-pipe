@@ -49,8 +49,7 @@ func receive(operands []string) error {
 		return err
 	}
 	fmt.Fprintf(os.Stderr, "# Accepted connection: %q\n", conn.RemoteAddr())
-	buf := make([]byte, 32*1024)
-	cr, err := io.CopyBuffer(os.Stdout, conn, buf)
+	cr, err := io.Copy(os.Stdout, conn)
 	if cr > 0 {
 		fmt.Fprintf(os.Stderr, "# received %d bytes\n", cr)
 	}
@@ -66,8 +65,7 @@ func send(operands []string) error {
 		return err
 	}
 	fmt.Fprintf(os.Stderr, "# Connected: %q\n", conn.RemoteAddr())
-	buf := make([]byte, 32*1024)
-	cr, err := io.CopyBuffer(conn, os.Stdin, buf)
+	cr, err := io.Copy(conn, os.Stdin)
 	if cr > 0 {
 		fmt.Fprintf(os.Stderr, "# sent %d bytes\n", cr)
 	}
