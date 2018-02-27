@@ -20,7 +20,7 @@ consider giving `tcp-pipe` a try.
 
 Why not use the amazing `rsync` program? You should! But really, if
 you're running on hosts where you cannot easily install dynamically
-linkedin binaries, or when you are running without the need for
+linked binaries, or when you are running without the need for
 encryption, this can be a handy alternative.
 
 1. First, run this on the destination host:
