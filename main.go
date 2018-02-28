@@ -36,6 +36,12 @@ func main() {
 	}
 }
 
+func verbose(format string, a ...interface{}) {
+	if *optVerbose {
+		_, _ = fmt.Fprintf(os.Stderr, format, a...)
+	}
+}
+
 func exit(err error) {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
@@ -57,21 +63,15 @@ func receive(operands []string) error {
 	if err != nil {
 		return err
 	}
-	if *optVerbose {
-		fmt.Fprintf(os.Stderr, "# Listening: %q\n", operands[0])
-	}
+	verbose("# Listening: %q\n", operands[0])
 	conn, err := l.Accept()
 	if err != nil {
 		return err
 	}
-	if *optVerbose {
-		fmt.Fprintf(os.Stderr, "# Accepted connection: %q\n", conn.RemoteAddr())
-	}
+	verbose("# Accepted connection: %q\n", conn.RemoteAddr())
 	var ior io.Reader = conn
 	if *optZip {
-		if *optVerbose {
-			fmt.Fprintf(os.Stderr, "# Using gzip compression\n")
-		}
+		verbose("# Using gzip compression\n")
 		ior, err = gzip.NewReader(ior)
 		if err != nil {
 			_ = conn.Close()
@@ -79,8 +79,8 @@ func receive(operands []string) error {
 		}
 	}
 	cr, err := io.Copy(os.Stdout, ior)
-	if *optVerbose && cr > 0 {
-		fmt.Fprintf(os.Stderr, "# Received %d bytes\n", cr)
+	if cr > 0 {
+		verbose("# Received %d bytes\n", cr)
 	}
 	if *optZip {
 		if err2 := ior.(*gzip.Reader).Close(); err == nil {
@@ -101,19 +101,15 @@ func send(operands []string) error {
 	if err != nil {
 		return err
 	}
-	if *optVerbose {
-		fmt.Fprintf(os.Stderr, "# Connected: %q\n", conn.RemoteAddr())
-	}
+	verbose("# Connected: %q\n", conn.RemoteAddr())
 	var iow io.Writer = conn
 	if *optZip {
-		if *optVerbose {
-			fmt.Fprintf(os.Stderr, "# Using gzip compression\n")
-		}
+		verbose("# Using gzip compression\n")
 		iow = gzip.NewWriter(iow)
 	}
 	cr, err := io.Copy(iow, os.Stdin)
-	if *optVerbose && cr > 0 {
-		fmt.Fprintf(os.Stderr, "# Sent %d bytes\n", cr)
+	if cr > 0 {
+		verbose("# Sent %d bytes\n", cr)
 	}
 	if *optZip {
 		if err2 := iow.(*gzip.Writer).Close(); err == nil {
