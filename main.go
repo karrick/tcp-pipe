@@ -1,24 +1,38 @@
 package main
 
 import (
+	"compress/gzip"
 	"fmt"
 	"io"
 	"net"
 	"os"
 	"path/filepath"
+
+	"github.com/karrick/golf"
+)
+
+var (
+	optHelp    = golf.BoolP('h', "help", false, "print help then exit")
+	optVerbose = golf.BoolP('v', "verbose", false, "print verbose information")
+	optZip     = golf.BoolP('z', "gzip", false, "(de-)compress with gzip")
 )
 
 func main() {
-	if len(os.Args) < 2 {
+	golf.Parse()
+
+	args := golf.Args()
+	if len(args) == 0 {
 		usage("expected sub-command")
 	}
-	switch os.Args[1] {
+
+	cmd, args := args[0], args[1:]
+	switch cmd {
 	case "receive":
-		exit(receive(os.Args[2:]))
+		exit(receive(args))
 	case "send":
-		exit(send(os.Args[2:]))
+		exit(send(args))
 	default:
-		usage(fmt.Sprintf("invalid sub-command: %q", os.Args[1]))
+		usage(fmt.Sprintf("invalid sub-command: %q", cmd))
 	}
 }
 
@@ -43,15 +57,38 @@ func receive(operands []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stderr, "# Listening: %q\n", operands[0])
+	if *optVerbose {
+		fmt.Fprintf(os.Stderr, "# Listening: %q\n", operands[0])
+	}
 	conn, err := l.Accept()
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stderr, "# Accepted connection: %q\n", conn.RemoteAddr())
-	cr, err := io.Copy(os.Stdout, conn)
-	if cr > 0 {
-		fmt.Fprintf(os.Stderr, "# received %d bytes\n", cr)
+	if *optVerbose {
+		fmt.Fprintf(os.Stderr, "# Accepted connection: %q\n", conn.RemoteAddr())
+	}
+	var ior io.Reader = conn
+	if *optZip {
+		if *optVerbose {
+			fmt.Fprintf(os.Stderr, "# Using gzip compression\n")
+		}
+		ior, err = gzip.NewReader(ior)
+		if err != nil {
+			_ = conn.Close()
+			return err
+		}
+	}
+	cr, err := io.Copy(os.Stdout, ior)
+	if *optVerbose && cr > 0 {
+		fmt.Fprintf(os.Stderr, "# Received %d bytes\n", cr)
+	}
+	if *optZip {
+		if err2 := ior.(*gzip.Reader).Close(); err == nil {
+			err = err2
+		}
+	}
+	if err2 := conn.Close(); err == nil {
+		err = err2
 	}
 	return err
 }
@@ -64,10 +101,27 @@ func send(operands []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stderr, "# Connected: %q\n", conn.RemoteAddr())
-	cr, err := io.Copy(conn, os.Stdin)
-	if cr > 0 {
-		fmt.Fprintf(os.Stderr, "# sent %d bytes\n", cr)
+	if *optVerbose {
+		fmt.Fprintf(os.Stderr, "# Connected: %q\n", conn.RemoteAddr())
+	}
+	var iow io.Writer = conn
+	if *optZip {
+		if *optVerbose {
+			fmt.Fprintf(os.Stderr, "# Using gzip compression\n")
+		}
+		iow = gzip.NewWriter(iow)
+	}
+	cr, err := io.Copy(iow, os.Stdin)
+	if *optVerbose && cr > 0 {
+		fmt.Fprintf(os.Stderr, "# Sent %d bytes\n", cr)
+	}
+	if *optZip {
+		if err2 := iow.(*gzip.Writer).Close(); err == nil {
+			err = err2
+		}
+	}
+	if err2 := conn.Close(); err == nil {
+		err = err2
 	}
 	return err
 }
