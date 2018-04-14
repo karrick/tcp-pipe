@@ -1,3 +1,3 @@
 module "github.com/karrick/tcp-pipe"
 
-require "github.com/karrick/golf" v0.2.0
+require "github.com/karrick/golf" v1.0.0
